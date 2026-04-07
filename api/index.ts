@@ -3,6 +3,7 @@ import path from "path";
 import fs from "fs";
 import axios from "axios";
 import cors from "cors";
+import { connectToDatabase, Config } from "../lib/db";
 
 const app = express();
 const DATA_FILE = path.join(process.cwd(), "data.json");
@@ -12,17 +13,30 @@ interface AppData {
   authorizedKeys: string[];
 }
 
-function loadData(): AppData {
+async function loadData(): Promise<AppData> {
+  await connectToDatabase();
+  const config = await Config.findOne({ id: 'main_config' });
+  if (config) {
+    return {
+      groqKeys: config.groqKeys || [],
+      authorizedKeys: config.authorizedKeys || []
+    };
+  }
+  
   if (fs.existsSync(DATA_FILE)) {
     return JSON.parse(fs.readFileSync(DATA_FILE, "utf-8"));
   }
-  // For Vercel/Serverless, we might want to use an environment variable or external DB
-  // but for now we'll stick to the file-based approach as a fallback
   return { groqKeys: [], authorizedKeys: [] };
 }
 
-function saveData(data: AppData) {
-  // Note: On Vercel, writing to the filesystem is ephemeral
+async function saveData(data: AppData) {
+  await connectToDatabase();
+  await Config.findOneAndUpdate(
+    { id: 'main_config' },
+    { ...data },
+    { upsert: true, new: true }
+  );
+  
   try {
     fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
   } catch (e) {
@@ -34,19 +48,19 @@ app.use(cors());
 app.use(express.json());
 
 // API Routes
-app.get("/api/config", (req, res) => {
-  res.json(loadData());
+app.get("/api/config", async (req, res) => {
+  res.json(await loadData());
 });
 
-app.post("/api/config", (req, res) => {
+app.post("/api/config", async (req, res) => {
   const { groqKeys, authorizedKeys } = req.body;
-  saveData({ groqKeys, authorizedKeys });
+  await saveData({ groqKeys, authorizedKeys });
   res.json({ success: true });
 });
 
 app.post("/api/platform", async (req, res) => {
   const { prompt, model, unique_key } = req.body;
-  const data = loadData();
+  const data = await loadData();
 
   if (!prompt || typeof prompt !== 'string' || prompt.trim() === '') {
     return res.status(400).json({ error: "Missing or invalid 'prompt' parameter" });

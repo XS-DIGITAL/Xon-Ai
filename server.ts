@@ -4,6 +4,7 @@ import path from "path";
 import fs from "fs";
 import axios from "axios";
 import cors from "cors";
+import { connectToDatabase, Config } from "./lib/db";
 
 const DATA_FILE = path.join(process.cwd(), "data.json");
 
@@ -12,14 +13,32 @@ interface AppData {
   authorizedKeys: string[];
 }
 
-function loadData(): AppData {
+async function loadData(): Promise<AppData> {
+  await connectToDatabase();
+  const config = await Config.findOne({ id: 'main_config' });
+  if (config) {
+    return {
+      groqKeys: config.groqKeys || [],
+      authorizedKeys: config.authorizedKeys || []
+    };
+  }
+  
+  // Fallback to local file if MongoDB is empty or not connected
   if (fs.existsSync(DATA_FILE)) {
     return JSON.parse(fs.readFileSync(DATA_FILE, "utf-8"));
   }
   return { groqKeys: [], authorizedKeys: [] };
 }
 
-function saveData(data: AppData) {
+async function saveData(data: AppData) {
+  await connectToDatabase();
+  await Config.findOneAndUpdate(
+    { id: 'main_config' },
+    { ...data },
+    { upsert: true, new: true }
+  );
+  
+  // Also save to local file as backup
   fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
 }
 
@@ -31,19 +50,19 @@ async function startServer() {
   app.use(express.json());
 
   // API Routes
-  app.get("/api/config", (req, res) => {
-    res.json(loadData());
+  app.get("/api/config", async (req, res) => {
+    res.json(await loadData());
   });
 
-  app.post("/api/config", (req, res) => {
+  app.post("/api/config", async (req, res) => {
     const { groqKeys, authorizedKeys } = req.body;
-    saveData({ groqKeys, authorizedKeys });
+    await saveData({ groqKeys, authorizedKeys });
     res.json({ success: true });
   });
 
   app.post("/api/platform", async (req, res) => {
     const { prompt, model, unique_key } = req.body;
-    const data = loadData();
+    const data = await loadData();
 
     // 1. Validate Input
     if (!prompt || typeof prompt !== 'string' || prompt.trim() === '') {

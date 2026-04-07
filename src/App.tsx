@@ -18,9 +18,14 @@ export default function App() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const adminId = params.get('id');
-    const secretId = (import.meta as any).env.VITE_ADMIN_ID;
+    const secretId = import.meta.env.VITE_ADMIN_ID;
 
-    if (adminId && adminId === secretId) {
+    console.log('Admin Check:', { 
+      provided: adminId, 
+      configured: secretId ? 'SET' : 'NOT SET' 
+    });
+
+    if (adminId && secretId && adminId.trim() === secretId.trim()) {
       setIsAdmin(true);
       fetchConfig();
     } else {
@@ -110,48 +115,122 @@ export default function App() {
 
   if (!isAdmin) {
     return (
-      <div className="min-h-screen bg-bg-dark text-text-primary flex flex-col items-center justify-center p-6 text-center">
+      <div className="min-h-screen bg-bg-dark text-text-primary p-6 md:p-12">
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="max-w-2xl"
+          className="max-w-4xl mx-auto"
         >
-          <div className="w-20 h-20 bg-brand-green rounded-2xl flex items-center justify-center mx-auto mb-8 shadow-[0_0_40px_rgba(34,197,94,0.3)]">
-            <Globe className="text-bg-dark w-10 h-10" />
-          </div>
-          <h1 className="text-5xl font-extrabold mb-4 tracking-tight">
-            Xon Ai <span className="text-brand-green">API</span>
-          </h1>
-          <p className="text-xl text-text-secondary mb-12 leading-relaxed">
-            The high-performance Groq API wrapper with intelligent rollover and zero downtime.
-          </p>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+          {/* Hero Section */}
+          <header className="text-center mb-16">
+            <div className="w-20 h-20 bg-brand-green rounded-2xl flex items-center justify-center mx-auto mb-8 shadow-[0_0_40px_rgba(34,197,94,0.3)]">
+              <Globe className="text-bg-dark w-10 h-10" />
+            </div>
+            <h1 className="text-6xl font-extrabold mb-4 tracking-tight">
+              Xon Ai <span className="text-brand-green">API</span>
+            </h1>
+            <p className="text-xl text-text-secondary leading-relaxed max-w-2xl mx-auto">
+              The high-performance Groq API wrapper with intelligent rollover and zero downtime.
+            </p>
+          </header>
+
+          {/* Features */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-20">
             <div className="bg-surface p-6 rounded-xl border border-surface-hover">
               <Zap className="text-accent-orange w-8 h-8 mb-4 mx-auto" />
-              <h3 className="font-bold mb-2">Ultra Fast</h3>
-              <p className="text-sm text-text-muted">Direct edge routing to Groq's LPU infrastructure.</p>
+              <h3 className="font-bold mb-2 text-center">Ultra Fast</h3>
+              <p className="text-sm text-text-muted text-center">Direct edge routing to Groq's LPU infrastructure.</p>
             </div>
             <div className="bg-surface p-6 rounded-xl border border-surface-hover">
               <RefreshCw className="text-brand-green w-8 h-8 mb-4 mx-auto" />
-              <h3 className="font-bold mb-2">Auto Rollover</h3>
-              <p className="text-sm text-text-muted">Seamlessly switches keys on rate limits or failures.</p>
+              <h3 className="font-bold mb-2 text-center">Auto Rollover</h3>
+              <p className="text-sm text-text-muted text-center">Seamlessly switches keys on rate limits or failures.</p>
             </div>
             <div className="bg-surface p-6 rounded-xl border border-surface-hover">
               <Lock className="text-accent-blue w-8 h-8 mb-4 mx-auto" />
-              <h3 className="font-bold mb-2">Secure</h3>
-              <p className="text-sm text-text-muted">Authorized key validation for every request.</p>
+              <h3 className="font-bold mb-2 text-center">Secure</h3>
+              <p className="text-sm text-text-muted text-center">Authorized key validation for every request.</p>
             </div>
           </div>
 
-          <div className="bg-surface/50 border border-surface-hover p-4 rounded-lg inline-block">
-            <code className="text-brand-green text-sm">POST /api/platform</code>
-          </div>
+          {/* Documentation Section */}
+          <section className="bg-surface rounded-2xl border border-surface-hover overflow-hidden shadow-2xl">
+            <div className="p-8">
+              <h2 className="text-2xl font-bold mb-8 flex items-center gap-2">
+                <Shield className="text-brand-green" /> API Documentation
+              </h2>
+              
+              <div className="space-y-10">
+                {/* Endpoint */}
+                <div>
+                  <h3 className="text-xs font-bold uppercase text-text-muted mb-3 tracking-widest">Endpoint</h3>
+                  <div className="bg-bg-dark p-4 rounded-lg border border-surface-hover flex items-center justify-between">
+                    <code className="text-brand-green font-mono">POST /api/platform</code>
+                    <span className="text-[10px] bg-brand-green/10 text-brand-green px-2 py-1 rounded font-bold">STABLE</span>
+                  </div>
+                </div>
+
+                {/* Parameters */}
+                <div>
+                  <h3 className="text-xs font-bold uppercase text-text-muted mb-3 tracking-widest">Request Parameters</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                      <thead>
+                        <tr className="border-b border-surface-hover">
+                          <th className="pb-3 font-bold text-text-secondary">Parameter</th>
+                          <th className="pb-3 font-bold text-text-secondary">Type</th>
+                          <th className="pb-3 font-bold text-text-secondary">Description</th>
+                        </tr>
+                      </thead>
+                      <tbody className="text-text-muted">
+                        <tr className="border-b border-surface-hover/50">
+                          <td className="py-4 font-mono text-brand-green">prompt</td>
+                          <td className="py-4">string</td>
+                          <td className="py-4">The message to send to the model. <span className="text-accent-orange text-[10px] font-bold ml-1">REQUIRED</span></td>
+                        </tr>
+                        <tr className="border-b border-surface-hover/50">
+                          <td className="py-4 font-mono text-brand-green">unique_key</td>
+                          <td className="py-4">string</td>
+                          <td className="py-4">Your authorized platform access key. <span className="text-accent-orange text-[10px] font-bold ml-1">REQUIRED</span></td>
+                        </tr>
+                        <tr>
+                          <td className="py-4 font-mono text-brand-green">model</td>
+                          <td className="py-4">string</td>
+                          <td className="py-4">Optional. Groq model ID (default: mixtral-8x7b-32768).</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Example */}
+                <div>
+                  <h3 className="text-xs font-bold uppercase text-text-muted mb-3 tracking-widest">Example Request (cURL)</h3>
+                  <div className="bg-bg-dark p-5 rounded-lg border border-surface-hover">
+                    <pre className="text-xs font-mono text-accent-blue overflow-x-auto leading-relaxed">
+{`curl -X POST /api/platform \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "prompt": "Hello Xon Ai!",
+    "unique_key": "YOUR_KEY_HERE"
+  }'`}
+                    </pre>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-brand-green/5 p-6 border-t border-surface-hover text-center">
+              <p className="text-sm text-text-secondary">
+                Need an access key? Contact the administrator of this Xon Ai instance.
+              </p>
+            </div>
+          </section>
+
+          <footer className="mt-20 text-center text-text-muted text-sm pb-12">
+            © 2026 Xon Ai • Enterprise API Solutions
+          </footer>
         </motion.div>
-        
-        <footer className="fixed bottom-8 text-text-muted text-xs">
-          © 2026 Xon Ai • Enterprise API Solutions
-        </footer>
       </div>
     );
   }
