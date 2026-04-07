@@ -94,7 +94,7 @@ export default function App() {
     try {
       const res = await axios.post('/api/platform', {
         prompt: testPrompt,
-        model: 'mixtral-8x7b-32768',
+        model: 'qwen/qwen3-32b',
         unique_key: authorizedKeys[0] // Use first auth key for testing
       });
       setTestResult(res.data);
@@ -196,7 +196,7 @@ export default function App() {
                         <tr>
                           <td className="py-4 font-mono text-brand-green">model</td>
                           <td className="py-4">string</td>
-                          <td className="py-4">Optional. Groq model ID (default: mixtral-8x7b-32768).</td>
+                          <td className="py-4">Optional. Groq model ID (default: qwen/qwen3-32b).</td>
                         </tr>
                       </tbody>
                     </table>

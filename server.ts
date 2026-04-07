@@ -89,7 +89,7 @@ async function startServer() {
         const response = await axios.post(
           "https://api.groq.com/openai/v1/chat/completions",
           {
-            model: model || "mixtral-8x7b-32768",
+            model: model || "qwen/qwen3-32b",
             messages: [{ role: "user", content: prompt }],
           },
           {
