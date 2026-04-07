@@ -1,0 +1,60 @@
+<?php
+/**
+ * Xon Ai Platform - Dashboard
+ * Main management interface.
+ */
+
+require_once 'config.php';
+require_once 'config_loader.php';
+
+$conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
+
+if ($conn->connect_error) {
+    die("Connection failed: " . $conn->connect_error);
+}
+
+$config = get_config($conn);
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Xon Ai Dashboard</title>
+    <style>
+        body { background: #0f172a; color: #f1f5f9; font-family: sans-serif; }
+        .container { max-width: 1000px; margin: 40px auto; padding: 20px; }
+        .card { background: #1e293b; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+        h1 { color: #22c55e; }
+        .key-list { list-style: none; padding: 0; }
+        .key-item { background: #0f172a; padding: 10px; margin: 5px 0; border-radius: 6px; display: flex; justify-content: space-between; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Xon Ai Dashboard</h1>
+        
+        <div class="card">
+            <h2>Groq API Keys Pool</h2>
+            <ul class="key-list">
+                <?php foreach ($config['groqKeys'] as $key): ?>
+                    <li class="key-item">
+                        <code><?php echo substr($key, 0, 12); ?>...</code>
+                    </li>
+                <?php endforeach; ?>
+            </ul>
+        </div>
+
+        <div class="card">
+            <h2>Authorized Platform Keys</h2>
+            <ul class="key-list">
+                <?php foreach ($config['authorizedKeys'] as $key): ?>
+                    <li class="key-item">
+                        <span><?php echo $key; ?></span>
+                    </li>
+                <?php endforeach; ?>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>
+<?php $conn->close(); ?>

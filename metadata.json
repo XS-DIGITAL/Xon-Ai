@@ -1,0 +1,5 @@
+{
+  "name": "Xon Ai Platform",
+  "description": "The high-performance Groq API wrapper with intelligent rollover and zero downtime.",
+  "requestFramePermissions": []
+}

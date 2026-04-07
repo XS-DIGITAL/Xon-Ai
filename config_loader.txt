@@ -1,0 +1,33 @@
+<?php
+/**
+ * Xon Ai Platform - Config Loader
+ * This script handles loading and saving configuration.
+ */
+
+require_once 'config.php';
+
+function get_config($conn) {
+    $groq_keys = [];
+    $auth_keys = [];
+
+    $result = $conn->query("SELECT api_key FROM groq_keys WHERE is_active = 1");
+    while ($row = $result->fetch_assoc()) {
+        $groq_keys[] = $row['api_key'];
+    }
+
+    $result = $conn->query("SELECT unique_key FROM authorized_keys WHERE is_active = 1");
+    while ($row = $result->fetch_assoc()) {
+        $auth_keys[] = $row['unique_key'];
+    }
+
+    return [
+        'groqKeys' => $groq_keys,
+        'authorizedKeys' => $auth_keys
+    ];
+}
+
+function save_config($conn, $data) {
+    // Implementation for saving would go here
+    // For now, this is a placeholder for the logic
+}
+?>
