@@ -3,7 +3,7 @@ import path from "path";
 import fs from "fs";
 import axios from "axios";
 import cors from "cors";
-import { connectToDatabase, Config } from "../lib/db";
+import { connectToDatabase, Config } from "./_db.js";
 
 const app = express();
 const DATA_FILE = path.join(process.cwd(), "data.json");
