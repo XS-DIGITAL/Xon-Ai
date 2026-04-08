@@ -4,7 +4,7 @@ import path from "path";
 import fs from "fs";
 import axios from "axios";
 import cors from "cors";
-import { connectToDatabase, Config } from "./api/_db.js";
+import { connectToDatabase, Config, RequestLog } from "./api/_db.js";
 
 const DATA_FILE = path.join(process.cwd(), "data.json");
 
@@ -54,6 +54,22 @@ async function startServer() {
     res.json(await loadData());
   });
 
+  app.get("/api/stats", async (req, res) => {
+    await connectToDatabase();
+    const stats = await RequestLog.aggregate([
+      {
+        $group: {
+          _id: "$status",
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+    
+    const recentLogs = await RequestLog.find().sort({ timestamp: -1 }).limit(50);
+    
+    res.json({ stats, recentLogs });
+  });
+
   app.post("/api/config", async (req, res) => {
     const { groqKeys, authorizedKeys } = req.body;
     await saveData({ groqKeys, authorizedKeys });
@@ -84,7 +100,9 @@ async function startServer() {
 
     // 2. Try Groq Keys with Rollover
     let lastError = null;
+    let attempts = 0;
     for (const apiKey of data.groqKeys) {
+      attempts++;
       try {
         const response = await axios.post(
           "https://api.groq.com/openai/v1/chat/completions",
@@ -100,6 +118,15 @@ async function startServer() {
             timeout: 10000,
           }
         );
+        
+        // Log Success
+        await RequestLog.create({
+          uniqueKey: unique_key,
+          aiModel: model || "qwen/qwen3-32b",
+          status: attempts > 1 ? 'fallback' : 'success',
+          attempts
+        });
+
         return res.json(response.data);
       } catch (error: any) {
         lastError = error;
@@ -108,6 +135,14 @@ async function startServer() {
         // 400 Bad Request: Payload issue (invalid model, empty prompt, etc.)
         // Rolling over won't help here, so return the error to the user immediately.
         if (status === 400) {
+          await RequestLog.create({
+            uniqueKey: unique_key,
+            aiModel: model || "qwen/qwen3-32b",
+            status: 'error',
+            errorCode: 400,
+            errorMessage: "Bad Request",
+            attempts
+          });
           return res.status(400).json({
             error: "Bad Request from Groq API",
             message: "The request payload is invalid. Check your prompt or model name.",
@@ -129,6 +164,16 @@ async function startServer() {
         continue;
       }
     }
+
+    // Log Final Failure
+    await RequestLog.create({
+      uniqueKey: unique_key,
+      aiModel: model || "qwen/qwen3-32b",
+      status: 'error',
+      errorCode: lastError?.response?.status || 502,
+      errorMessage: "All keys failed",
+      attempts
+    });
 
     res.status(502).json({
       error: "All Groq API keys failed or exhausted",

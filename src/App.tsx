@@ -1,7 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Key, Shield, Plus, Trash2, Send, RefreshCw, CheckCircle2, AlertCircle, Globe, Zap, Lock } from 'lucide-react';
+import { Key, Shield, Plus, Trash2, Send, RefreshCw, CheckCircle2, AlertCircle, Globe, Zap, Lock, BarChart3, Activity, History } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import axios from 'axios';
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
+  PieChart, Pie, Cell 
+} from 'recharts';
 
 export default function App() {
   const [groqKeys, setGroqKeys] = useState<string[]>([]);
@@ -14,6 +18,10 @@ export default function App() {
   const [testResult, setTestResult] = useState<any>(null);
   const [testing, setTesting] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [activeTab, setActiveTab] = useState<'config' | 'monitoring'>('config');
+  const [stats, setStats] = useState<any[]>([]);
+  const [recentLogs, setRecentLogs] = useState<any[]>([]);
+  const [fetchingStats, setFetchingStats] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -28,6 +36,7 @@ export default function App() {
     if (adminId && secretId && adminId.trim() === secretId.trim()) {
       setIsAdmin(true);
       fetchConfig();
+      fetchStats();
     } else {
       setLoading(false);
     }
@@ -42,6 +51,19 @@ export default function App() {
       console.error('Failed to fetch config', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchStats = async () => {
+    setFetchingStats(true);
+    try {
+      const res = await axios.get('/api/stats');
+      setStats(res.data.stats || []);
+      setRecentLogs(res.data.recentLogs || []);
+    } catch (err) {
+      console.error('Failed to fetch stats', err);
+    } finally {
+      setFetchingStats(false);
     }
   };
 
@@ -235,25 +257,59 @@ export default function App() {
     );
   }
 
-  return (
-    <div className="min-h-screen p-6 md:p-12 max-w-6xl mx-auto">
-      <header className="mb-12 flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-brand-green rounded-lg flex items-center justify-center">
-              <Shield className="text-bg-dark w-6 h-6" />
-            </div>
-            <h1 className="text-3xl font-bold tracking-tight">Xon Ai <span className="text-brand-green">Admin</span></h1>
-          </div>
-          <p className="text-text-secondary">Platform Configuration & Key Management</p>
-        </div>
-        <div className="flex items-center gap-2 bg-surface px-4 py-2 rounded-full border border-surface-hover">
-          <div className="w-2 h-2 bg-brand-green rounded-full animate-pulse" />
-          <span className="text-xs font-bold text-text-secondary uppercase tracking-wider">System Online</span>
-        </div>
-      </header>
+    const COLORS = {
+      success: '#22c55e',
+      error: '#ef4444',
+      fallback: '#f97316'
+    };
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    const chartData = stats.map(s => ({
+      name: s._id.charAt(0).toUpperCase() + s._id.slice(1),
+      value: s.count,
+      color: COLORS[s._id as keyof typeof COLORS] || '#94a3b8'
+    }));
+
+    return (
+      <div className="min-h-screen bg-bg-dark text-text-primary p-4 md:p-8">
+        <div className="max-w-6xl mx-auto">
+          <header className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+            <div>
+              <div className="flex items-center gap-3 mb-1">
+                <div className="w-10 h-10 bg-brand-green rounded-lg flex items-center justify-center">
+                  <Shield className="text-bg-dark w-6 h-6" />
+                </div>
+                <h1 className="text-3xl font-bold tracking-tight">Xon Ai <span className="text-brand-green">Admin</span></h1>
+              </div>
+              <p className="text-text-secondary">Platform Configuration & Monitoring</p>
+            </div>
+            
+            <div className="flex bg-surface p-1 rounded-lg border border-surface-hover">
+              <button 
+                onClick={() => setActiveTab('config')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-md transition-all text-sm font-bold ${activeTab === 'config' ? 'bg-brand-green text-bg-dark' : 'text-text-secondary hover:text-text-primary'}`}
+              >
+                <Key className="w-4 h-4" />
+                Configuration
+              </button>
+              <button 
+                onClick={() => setActiveTab('monitoring')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-md transition-all text-sm font-bold ${activeTab === 'monitoring' ? 'bg-brand-green text-bg-dark' : 'text-text-secondary hover:text-text-primary'}`}
+              >
+                <Activity className="w-4 h-4" />
+                Monitoring
+              </button>
+            </div>
+          </header>
+
+          <AnimatePresence mode="wait">
+            {activeTab === 'config' ? (
+              <motion.div 
+                key="config"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="grid grid-cols-1 lg:grid-cols-2 gap-8"
+              >
         {/* Groq Keys Management */}
         <section className="bg-surface p-6 rounded-2xl border border-surface-hover shadow-xl">
           <div className="flex items-center gap-2 mb-6">
@@ -409,17 +465,122 @@ export default function App() {
             )}
           </div>
         </section>
-      </div>
+      </motion.div>
+    ) : (
+              <motion.div 
+                key="monitoring"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="space-y-8"
+              >
+                {/* Stats Overview */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="bg-surface p-6 rounded-2xl border border-surface-hover shadow-xl">
+                    <div className="text-text-secondary text-sm mb-1">Total Requests</div>
+                    <div className="text-4xl font-bold text-brand-green">
+                      {stats.reduce((acc, s) => acc + s.count, 0)}
+                    </div>
+                  </div>
+                  <div className="bg-surface p-6 rounded-2xl border border-surface-hover shadow-xl">
+                    <div className="text-text-secondary text-sm mb-1">Success Rate</div>
+                    <div className="text-4xl font-bold text-accent-blue">
+                      {stats.length > 0 ? Math.round((stats.find(s => s._id === 'success')?.count || 0) / stats.reduce((acc, s) => acc + s.count, 0) * 100) : 0}%
+                    </div>
+                  </div>
+                  <div className="bg-surface p-6 rounded-2xl border border-surface-hover shadow-xl">
+                    <div className="text-text-secondary text-sm mb-1">Fallbacks (Rollovers)</div>
+                    <div className="text-4xl font-bold text-accent-orange">
+                      {stats.find(s => s._id === 'fallback')?.count || 0}
+                    </div>
+                  </div>
+                </div>
 
-      <footer className="mt-12 text-center text-text-muted text-sm pb-12">
-        <p>© 2026 Xon Ai Platform • Built for scale</p>
-      </footer>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {/* Chart Section */}
+                  <div className="bg-surface p-6 rounded-2xl border border-surface-hover shadow-xl">
+                    <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
+                      <BarChart3 className="w-5 h-5 text-brand-green" />
+                      Request Distribution
+                    </h3>
+                    <div className="h-[300px] w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={chartData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={60}
+                            outerRadius={80}
+                            paddingAngle={5}
+                            dataKey="value"
+                          >
+                            {chartData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip 
+                            contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '8px' }}
+                            itemStyle={{ color: '#f1f5f9' }}
+                          />
+                          <Legend verticalAlign="bottom" height={36}/>
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
 
-      {saving && (
-        <div className="fixed bottom-6 right-6 bg-brand-green text-bg-dark px-4 py-2 rounded-full shadow-lg flex items-center gap-2 text-sm font-bold animate-pulse">
-          <RefreshCw size={16} className="animate-spin" /> Saving changes...
+                  {/* Recent Activity Section */}
+                  <div className="bg-surface p-6 rounded-2xl border border-surface-hover shadow-xl">
+                    <div className="flex items-center justify-between mb-6">
+                      <h3 className="text-lg font-bold flex items-center gap-2">
+                        <History className="w-5 h-5 text-accent-blue" />
+                        Recent Activity
+                      </h3>
+                      <button 
+                        onClick={fetchStats}
+                        className={`text-text-muted hover:text-brand-green transition-all ${fetchingStats ? 'animate-spin' : ''}`}
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                      {recentLogs.map((log, i) => (
+                        <div key={i} className="flex items-center justify-between bg-bg-dark/50 p-3 rounded-lg border border-surface-hover text-xs">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-2 h-2 rounded-full ${
+                              log.status === 'success' ? 'bg-green-500' : 
+                              log.status === 'fallback' ? 'bg-orange-500' : 'bg-red-500'
+                            }`} />
+                            <div>
+                              <div className="text-text-primary font-mono">{log.uniqueKey}</div>
+                              <div className="text-text-muted">{new Date(log.timestamp).toLocaleString()}</div>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-text-secondary">{log.aiModel}</div>
+                            <div className="text-text-muted">{log.attempts} attempts</div>
+                          </div>
+                        </div>
+                      ))}
+                      {recentLogs.length === 0 && (
+                        <div className="text-center py-12 text-text-muted italic">
+                          No activity recorded yet
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {saving && (
+            <div className="fixed bottom-8 right-8 bg-brand-green text-bg-dark px-4 py-2 rounded-full font-bold shadow-2xl flex items-center gap-2">
+              <RefreshCw className="w-4 h-4 animate-spin" />
+              Saving Changes...
+            </div>
+          )}
         </div>
-      )}
-    </div>
-  );
-}
+      </div>
+    );
+  }
