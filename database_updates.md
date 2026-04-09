@@ -1,36 +1,17 @@
-# Database Updates for Xon Ai Platform
+# Database Updates
 
-Run the following SQL queries to set up the necessary tables for the API platform.
+The following updates were made to the MongoDB schema:
 
+## Config Collection
+- Added `flwPlanId` (String, optional): Stores the Flutterwave Payment Plan ID for recurring subscriptions.
+
+## UserKey Collection
+- Added `flutterwaveRef` (String, optional): Stores the transaction reference or subscription ID from Flutterwave.
+- Added `nextPaymentDate` (Date, optional): Stores the next billing date for subscription-based keys.
+
+### SQL Equivalent (for reference)
 ```sql
--- Create table for Groq API Keys
-CREATE TABLE IF NOT EXISTS groq_keys (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    api_key VARCHAR(255) NOT NULL UNIQUE,
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Create table for Authorized Platform Keys
-CREATE TABLE IF NOT EXISTS authorized_keys (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    unique_key VARCHAR(255) NOT NULL UNIQUE,
-    client_name VARCHAR(100),
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Optional: Usage tracking table
-CREATE TABLE IF NOT EXISTS usage_logs (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    auth_key_id INT,
-    groq_key_id INT,
-    model VARCHAR(100),
-    prompt_tokens INT,
-    completion_tokens INT,
-    status_code INT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (auth_key_id) REFERENCES authorized_keys(id),
-    FOREIGN KEY (groq_key_id) REFERENCES groq_keys(id)
-);
+ALTER TABLE config ADD COLUMN flwPlanId VARCHAR(255);
+ALTER TABLE user_keys ADD COLUMN flutterwaveRef VARCHAR(255);
+ALTER TABLE user_keys ADD COLUMN nextPaymentDate TIMESTAMP;
 ```

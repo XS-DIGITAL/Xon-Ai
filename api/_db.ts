@@ -11,6 +11,7 @@ interface IConfig extends mongoose.Document {
   id: string;
   groqKeys: string[];
   authorizedKeys: string[];
+  flwPlanId?: string;
 }
 
 interface IRequestLog extends mongoose.Document {
@@ -27,7 +28,8 @@ interface IRequestLog extends mongoose.Document {
 const ConfigSchema = new mongoose.Schema<IConfig>({
   id: { type: String, default: 'main_config', unique: true },
   groqKeys: [String],
-  authorizedKeys: [String]
+  authorizedKeys: [String],
+  flwPlanId: String
 }, { timestamps: true });
 
 const RequestLogSchema = new mongoose.Schema<IRequestLog>({
@@ -42,6 +44,52 @@ const RequestLogSchema = new mongoose.Schema<IRequestLog>({
 
 export const Config = mongoose.models.Config || mongoose.model<IConfig>('Config', ConfigSchema);
 export const RequestLog = mongoose.models.RequestLog || mongoose.model<IRequestLog>('RequestLog', RequestLogSchema);
+
+interface IUserKey extends mongoose.Document {
+  key: string;
+  email: string;
+  type: 'subscription' | 'onetime';
+  status: 'active' | 'inactive';
+  lastPaymentDate: Date;
+  nextPaymentDate?: Date;
+  flutterwaveRef?: string;
+  createdAt: Date;
+}
+
+const UserKeySchema = new mongoose.Schema<IUserKey>({
+  key: { type: String, unique: true, required: true },
+  email: { type: String, required: true },
+  type: { type: String, enum: ['subscription', 'onetime'], required: true },
+  status: { type: String, enum: ['active', 'inactive'], default: 'active' },
+  lastPaymentDate: { type: Date, default: Date.now },
+  nextPaymentDate: { type: Date },
+  flutterwaveRef: { type: String },
+  createdAt: { type: Date, default: Date.now }
+});
+
+export const UserKey = mongoose.models.UserKey || mongoose.model<IUserKey>('UserKey', UserKeySchema);
+
+interface IPayment extends mongoose.Document {
+  email: string;
+  amount: number;
+  currency: string;
+  type: 'subscription' | 'onetime';
+  flutterwaveRef: string;
+  status: string;
+  timestamp: Date;
+}
+
+const PaymentSchema = new mongoose.Schema<IPayment>({
+  email: { type: String, required: true },
+  amount: { type: Number, required: true },
+  currency: { type: String, default: 'USD' },
+  type: { type: String, enum: ['subscription', 'onetime'], required: true },
+  flutterwaveRef: { type: String, required: true, unique: true },
+  status: { type: String, default: 'successful' },
+  timestamp: { type: Date, default: Date.now }
+});
+
+export const Payment = mongoose.models.Payment || mongoose.model<IPayment>('Payment', PaymentSchema);
 
 let cachedConnection: typeof mongoose | null = null;
 
