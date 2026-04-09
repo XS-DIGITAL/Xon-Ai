@@ -190,6 +190,7 @@ async function startServer() {
           type,
           status: 'active',
           flutterwaveRef: transaction_id,
+          flwSubscriptionId: response.data.data.payment_plan ? response.data.data.subscription_id : undefined,
           nextPaymentDate
         });
 
@@ -202,6 +203,24 @@ async function startServer() {
           flutterwaveRef: transaction_id,
           status: 'successful'
         });
+
+        // If it's a subscription but we don't have the subscription_id yet, 
+        // we might need to fetch it or wait for webhook.
+        // But usually it's in the verify response if payment_plan was used.
+        if (type === 'subscription' && !newUserKey.flwSubscriptionId) {
+          try {
+            const subsRes = await axios.get(`https://api.flutterwave.com/v3/subscriptions?customer_email=${email}`, {
+              headers: { Authorization: `Bearer ${process.env.FLW_SECRET_KEY}` }
+            });
+            const activeSub = subsRes.data.data?.find((s: any) => s.status === 'active' && s.plan === parseInt(config?.flwPlanId || '0'));
+            if (activeSub) {
+              newUserKey.flwSubscriptionId = activeSub.id.toString();
+              await newUserKey.save();
+            }
+          } catch (e) {
+            console.error("Failed to fetch subscription ID:", e);
+          }
+        }
 
         // Also add to authorized keys in config
         const config = await Config.findOne({ id: 'main_config' });
@@ -305,11 +324,48 @@ async function startServer() {
         email: userKey.email,
         type: userKey.type,
         status: userKey.status,
-        nextPaymentDate: userKey.nextPaymentDate
+        nextPaymentDate: userKey.nextPaymentDate,
+        key: userKey.key // Include key for management
       },
       stats,
       recentLogs
     });
+  });
+
+  app.post("/api/user/cancel-subscription", async (req, res) => {
+    const { key } = req.body;
+    if (!key) return res.status(400).json({ error: "Key required" });
+
+    await connectToDatabase();
+    const userKey = await UserKey.findOne({ key });
+    if (!userKey || userKey.type !== 'subscription') {
+      return res.status(404).json({ error: "Subscription not found" });
+    }
+
+    try {
+      // If we have a subscription ID, cancel it via Flutterwave
+      if (userKey.flwSubscriptionId) {
+        await axios.put(`https://api.flutterwave.com/v3/subscriptions/${userKey.flwSubscriptionId}/cancel`, {}, {
+          headers: { Authorization: `Bearer ${process.env.FLW_SECRET_KEY}` }
+        });
+      }
+      
+      // Update local status
+      userKey.status = 'inactive';
+      await userKey.save();
+
+      // Remove from authorized keys
+      const config = await Config.findOne({ id: 'main_config' });
+      if (config) {
+        config.authorizedKeys = config.authorizedKeys.filter((k: string) => k !== key);
+        await config.save();
+      }
+
+      res.json({ success: true, message: "Subscription cancelled successfully" });
+    } catch (error: any) {
+      console.error("FLW Cancel Error:", error.response?.data || error.message);
+      res.status(500).json({ error: "Failed to cancel subscription on payment gateway" });
+    }
   });
 
   app.post("/api/platform", async (req, res) => {

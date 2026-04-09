@@ -53,6 +53,7 @@ interface IUserKey extends mongoose.Document {
   lastPaymentDate: Date;
   nextPaymentDate?: Date;
   flutterwaveRef?: string;
+  flwSubscriptionId?: string;
   createdAt: Date;
 }
 
@@ -64,6 +65,7 @@ const UserKeySchema = new mongoose.Schema<IUserKey>({
   lastPaymentDate: { type: Date, default: Date.now },
   nextPaymentDate: { type: Date },
   flutterwaveRef: { type: String },
+  flwSubscriptionId: { type: String },
   createdAt: { type: Date, default: Date.now }
 });
 

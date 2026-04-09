@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Key, Shield, Plus, Trash2, Send, RefreshCw, CheckCircle2, AlertCircle, Globe, Zap, Lock, BarChart3, Activity, History, CreditCard, User, ExternalLink, ArrowRight } from 'lucide-react';
+import { Key, Shield, Plus, Trash2, Send, RefreshCw, CheckCircle2, AlertCircle, Globe, Zap, Lock, BarChart3, Activity, History, CreditCard, User, ExternalLink, ArrowRight, Eye, EyeOff, Copy } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import axios from 'axios';
 import { 
@@ -34,6 +34,9 @@ export default function App() {
   const [userKeyInput, setUserKeyInput] = useState("");
   const [userLoading, setUserLoading] = useState(false);
   const [userError, setUserError] = useState("");
+  const [showKey, setShowKey] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   
   // Purchase State
   const [purchaseEmail, setPurchaseEmail] = useState("");
@@ -91,12 +94,36 @@ export default function App() {
       setUserLogs(res.data.recentLogs);
       setUserKeyInput(key);
       setView('user');
+      setShowKey(false);
     } catch (err: any) {
       setUserError(err.response?.data?.error || "Failed to access dashboard");
     } finally {
       setUserLoading(false);
       setLoading(false);
     }
+  };
+
+  const handleCancelSubscription = async () => {
+    if (!userKeyData?.key) return;
+    if (!confirm("Are you sure you want to cancel your subscription? Your key will be deactivated immediately.")) return;
+
+    setCancelling(true);
+    try {
+      await axios.post('/api/user/cancel-subscription', { key: userKeyData.key });
+      alert("Subscription cancelled successfully.");
+      setView('landing');
+      setUserKeyData(null);
+    } catch (err: any) {
+      alert(err.response?.data?.error || "Failed to cancel subscription");
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const handleFlutterwavePayment = () => {
@@ -575,14 +602,40 @@ export default function App() {
             <div className="bg-surface p-6 rounded-2xl border border-surface-hover shadow-xl">
               <div className="text-text-secondary text-sm mb-1">Key Type</div>
               <div className="text-2xl font-bold capitalize text-white">{userKeyData.type}</div>
-              {userKeyData.nextPaymentDate && (
+              {userKeyData.nextPaymentDate && userKeyData.status === 'active' && (
                 <div className="text-xs text-text-muted mt-2">Next Renewal: {new Date(userKeyData.nextPaymentDate).toLocaleDateString()}</div>
+              )}
+              {userKeyData.type === 'subscription' && userKeyData.status === 'active' && (
+                <button 
+                  onClick={handleCancelSubscription}
+                  disabled={cancelling}
+                  className="mt-4 text-xs font-bold text-red-400 hover:text-red-300 transition-colors flex items-center gap-1"
+                >
+                  {cancelling ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                  Cancel Subscription
+                </button>
               )}
             </div>
             <div className="bg-surface p-6 rounded-2xl border border-surface-hover shadow-xl">
-              <div className="text-text-secondary text-sm mb-1">Total Requests</div>
-              <div className="text-2xl font-bold text-brand-green">
-                {userStats.reduce((acc, s) => acc + s.count, 0)}
+              <div className="text-text-secondary text-sm mb-1">Your Unique Key</div>
+              <div className="flex items-center gap-2 mt-2">
+                <div className="flex-1 bg-bg-dark px-3 py-2 rounded-lg border border-surface-hover font-mono text-sm overflow-hidden truncate">
+                  {showKey ? userKeyData.key : "••••••••••••••••"}
+                </div>
+                <button 
+                  onClick={() => setShowKey(!showKey)}
+                  className="p-2 hover:bg-white/5 rounded-lg transition-colors text-text-secondary"
+                  title={showKey ? "Hide Key" : "Show Key"}
+                >
+                  {showKey ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+                <button 
+                  onClick={() => copyToClipboard(userKeyData.key)}
+                  className={`p-2 hover:bg-white/5 rounded-lg transition-colors ${copied ? 'text-brand-green' : 'text-text-secondary'}`}
+                  title="Copy Key"
+                >
+                  {copied ? <CheckCircle2 size={18} /> : <Copy size={18} />}
+                </button>
               </div>
             </div>
             <div className="bg-surface p-6 rounded-2xl border border-surface-hover shadow-xl">
