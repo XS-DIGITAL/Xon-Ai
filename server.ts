@@ -343,14 +343,41 @@ async function startServer() {
     }
 
     try {
-      // If we have a subscription ID, cancel it via Flutterwave
-      if (userKey.flwSubscriptionId) {
-        await axios.put(`https://api.flutterwave.com/v3/subscriptions/${userKey.flwSubscriptionId}/cancel`, {}, {
+      let subId = userKey.flwSubscriptionId;
+
+      // If ID is missing, try to find it via API
+      if (!subId) {
+        console.log(`Subscription ID missing for ${userKey.email}, searching...`);
+        const config = await Config.findOne({ id: 'main_config' });
+        const subsRes = await axios.get(`https://api.flutterwave.com/v3/subscriptions?customer_email=${userKey.email}`, {
           headers: { Authorization: `Bearer ${process.env.FLW_SECRET_KEY}` }
         });
+        
+        const activeSub = subsRes.data.data?.find((s: any) => 
+          s.status === 'active' && 
+          (config?.flwPlanId ? s.plan === parseInt(config.flwPlanId) : true)
+        );
+
+        if (activeSub) {
+          subId = activeSub.id.toString();
+          userKey.flwSubscriptionId = subId;
+          await userKey.save();
+          console.log(`Found and saved subscription ID: ${subId}`);
+        }
+      }
+
+      // If we have a subscription ID, cancel it via Flutterwave
+      if (subId) {
+        console.log(`Cancelling subscription ${subId} on Flutterwave...`);
+        const flwRes = await axios.put(`https://api.flutterwave.com/v3/subscriptions/${subId}/cancel`, {}, {
+          headers: { Authorization: `Bearer ${process.env.FLW_SECRET_KEY}` }
+        });
+        console.log("Flutterwave Cancel Response:", flwRes.data);
+      } else {
+        console.warn(`Could not find active subscription on Flutterwave for ${userKey.email}`);
       }
       
-      // Update local status
+      // Update local status regardless (to ensure key is deactivated)
       userKey.status = 'inactive';
       await userKey.save();
 
@@ -364,7 +391,10 @@ async function startServer() {
       res.json({ success: true, message: "Subscription cancelled successfully" });
     } catch (error: any) {
       console.error("FLW Cancel Error:", error.response?.data || error.message);
-      res.status(500).json({ error: "Failed to cancel subscription on payment gateway" });
+      res.status(500).json({ 
+        error: "Failed to cancel subscription on payment gateway",
+        details: error.response?.data?.message || error.message
+      });
     }
   });
 

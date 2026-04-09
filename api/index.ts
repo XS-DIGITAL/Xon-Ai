@@ -331,8 +331,28 @@ app.post("/api/user/cancel-subscription", async (req, res) => {
   }
 
   try {
-    if (userKey.flwSubscriptionId) {
-      await axios.put(`https://api.flutterwave.com/v3/subscriptions/${userKey.flwSubscriptionId}/cancel`, {}, {
+    let subId = userKey.flwSubscriptionId;
+
+    if (!subId) {
+      const config = await Config.findOne({ id: 'main_config' });
+      const subsRes = await axios.get(`https://api.flutterwave.com/v3/subscriptions?customer_email=${userKey.email}`, {
+        headers: { Authorization: `Bearer ${process.env.FLW_SECRET_KEY}` }
+      });
+      
+      const activeSub = subsRes.data.data?.find((s: any) => 
+        s.status === 'active' && 
+        (config?.flwPlanId ? s.plan === parseInt(config.flwPlanId) : true)
+      );
+
+      if (activeSub) {
+        subId = activeSub.id.toString();
+        userKey.flwSubscriptionId = subId;
+        await userKey.save();
+      }
+    }
+
+    if (subId) {
+      await axios.put(`https://api.flutterwave.com/v3/subscriptions/${subId}/cancel`, {}, {
         headers: { Authorization: `Bearer ${process.env.FLW_SECRET_KEY}` }
       });
     }
@@ -349,7 +369,10 @@ app.post("/api/user/cancel-subscription", async (req, res) => {
     res.json({ success: true, message: "Subscription cancelled successfully" });
   } catch (error: any) {
     console.error("FLW Cancel Error:", error.response?.data || error.message);
-    res.status(500).json({ error: "Failed to cancel subscription on payment gateway" });
+    res.status(500).json({ 
+      error: "Failed to cancel subscription on payment gateway",
+      details: error.response?.data?.message || error.message
+    });
   }
 });
 
